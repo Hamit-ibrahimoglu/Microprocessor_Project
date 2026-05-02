@@ -8,6 +8,9 @@ LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 const int tempPins[4] = {A0, A1, A2, A3};
 const int motorPins[4] = {3, 5, 6, 9};
 
+// System parameters
+const int targetTemp = 24; // Target room temperature
+
 void setup() {
   Serial.begin(9600);
   
@@ -28,6 +31,22 @@ float readTemp(int pin) {
   return (voltage - 0.5) * 100.0;
 }
 
+// Function to calculate base motor speed (PWM) based on temperature
+int calc_base_pwm(float temp) {
+  // If room is cooler than target, turn off fan
+  if (temp <= targetTemp) {
+    return 0; 
+  }
+  // Increase speed as it gets hotter
+  int speed = (temp - targetTemp) * 15; 
+  
+  // Limit max PWM to 255 (Arduino Uno max limit)
+  if (speed > 255) {
+    speed = 255;
+  }
+  return speed;
+}
+
 // Function to place and print each room's info on the screen
 void displayRoom(int roomIndex, int col, int row, float temp, int speedPercent) {
   lcd.setCursor(col, row);
@@ -36,7 +55,7 @@ void displayRoom(int roomIndex, int col, int row, float temp, int speedPercent) 
   lcd.print((int)temp); 
   lcd.print("C "); 
   lcd.print(speedPercent); 
-  lcd.print("%"); 
+  lcd.print("% "); // Added extra space to clear old numbers if speed drops
 }
 
 void loop() {
@@ -46,11 +65,29 @@ void loop() {
   float temp3 = readTemp(tempPins[2]);
   float temp4 = readTemp(tempPins[3]);
   
-  // Show data on LCD (motor speed is 0 for now until I add PWM code)
-  displayRoom(0, 0, 0, temp1, 0); 
-  displayRoom(1, 8, 0, temp2, 0); 
-  displayRoom(2, 0, 1, temp3, 0); 
-  displayRoom(3, 8, 1, temp4, 0); 
+  // Calculate base speeds for each room (0 to 255)
+  int base1 = calc_base_pwm(temp1);
+  int base2 = calc_base_pwm(temp2);
+  int base3 = calc_base_pwm(temp3);
+  int base4 = calc_base_pwm(temp4);
+
+  // Send PWM signals to motors
+  analogWrite(motorPins[0], base1);
+  analogWrite(motorPins[1], base2);
+  analogWrite(motorPins[2], base3);
+  analogWrite(motorPins[3], base4);
+  
+  // Convert PWM (0-255) to Percentage (0-100) for display
+  int pct1 = map(base1, 0, 255, 0, 100);
+  int pct2 = map(base2, 0, 255, 0, 100);
+  int pct3 = map(base3, 0, 255, 0, 100);
+  int pct4 = map(base4, 0, 255, 0, 100);
+
+  // Show real data on LCD
+  displayRoom(0, 0, 0, temp1, pct1); 
+  displayRoom(1, 8, 0, temp2, pct2); 
+  displayRoom(2, 0, 1, temp3, pct3); 
+  displayRoom(3, 8, 1, temp4, pct4); 
   
   delay(200);
 }
