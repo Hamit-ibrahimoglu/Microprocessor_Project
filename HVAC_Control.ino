@@ -61,12 +61,17 @@ void loop() {
   int base3 = calc_base_pwm(temp3);
   int base4 = calc_base_pwm(temp4);
 
-  // Apply Cross-coupling correlation (BUG INTRODUCED HERE intentionally!)
-  // The values will easily exceed 255, causing the motors to glitch
+  // Apply Cross-coupling correlation between adjacent rooms
   int final1 = base1 + (correlation * base2);
   int final2 = base2 + (correlation * base1) + (correlation * base3);
   int final3 = base3 + (correlation * base2) + (correlation * base4);
   int final4 = base4 + (correlation * base3);
+
+  // FIX: Added limits to prevent PWM overflow from cross-coupling
+  if (final1 > 255) final1 = 255;
+  if (final2 > 255) final2 = 255;
+  if (final3 > 255) final3 = 255;
+  if (final4 > 255) final4 = 255;
 
   analogWrite(motorPins[0], final1);
   analogWrite(motorPins[1], final2);
