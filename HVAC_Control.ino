@@ -89,7 +89,7 @@ void loop() {
 
   float temp1 = readTemp(tempPins[0]);
   float temp2 = readTemp(tempPins[1]);
-  float float temp3 = readTemp(tempPins[2]);
+  float temp3 = readTemp(tempPins[2]);
   float temp4 = readTemp(tempPins[3]);
   
   int base1 = calc_base_pwm(temp1);
