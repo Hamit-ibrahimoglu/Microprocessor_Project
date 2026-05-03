@@ -1,16 +1,23 @@
 #include <LiquidCrystal.h>
 
-// Setup pins for the LCD
+// Moved d7 to pin 11 to free up pin 2 for the emergency interrupt
 const int rs = 13, en = 12, d4 = 8, d5 = 7, d6 = 4, d7 = 11;
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
-// Define Pins for temp sensors and motors
 const int tempPins[4] = {A0, A1, A2, A3};
 const int motorPins[4] = {3, 5, 6, 9};
 
-// System parameters
-const int targetTemp = 24; // Target room temperature
-float correlation = 0.3; // Cross-coupling factor between rooms
+// Emergency button connected to Pin 2 for hardware interrupt support
+const int emergencyBtnPin = 2;
+
+const int targetTemp = 24; 
+float correlation = 0.3; 
+
+volatile bool isEmergency = false; 
+
+void emergency_isr() {
+  isEmergency = true;
+}
 
 void setup() {
   Serial.begin(9600);
@@ -18,6 +25,11 @@ void setup() {
   for(int i = 0; i < 4; i++) {
     pinMode(motorPins[i], OUTPUT);
   }
+  
+  pinMode(emergencyBtnPin, INPUT_PULLUP); 
+  
+  // Attach hardware interrupt to pin 2
+  attachInterrupt(digitalPinToInterrupt(emergencyBtnPin), emergency_isr, FALLING);
   
   lcd.begin(16, 2);
 }
@@ -50,24 +62,35 @@ void displayRoom(int roomIndex, int col, int row, float temp, int speedPercent) 
 }
 
 void loop() {
+
+  if (isEmergency) {
+    for(int i = 0; i < 4; i++) {
+      analogWrite(motorPins[i], 0); 
+    }
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print(" SYSTEM HALTED! ");
+    lcd.setCursor(0, 1);
+    lcd.print(" HARDWARE RESET ");
+    
+    while(true) {} 
+  }
+
   float temp1 = readTemp(tempPins[0]);
   float temp2 = readTemp(tempPins[1]);
   float temp3 = readTemp(tempPins[2]);
   float temp4 = readTemp(tempPins[3]);
   
-  // Calculate base speeds
   int base1 = calc_base_pwm(temp1);
   int base2 = calc_base_pwm(temp2);
   int base3 = calc_base_pwm(temp3);
   int base4 = calc_base_pwm(temp4);
 
-  // Apply Cross-coupling correlation between adjacent rooms
   int final1 = base1 + (correlation * base2);
   int final2 = base2 + (correlation * base1) + (correlation * base3);
   int final3 = base3 + (correlation * base2) + (correlation * base4);
   int final4 = base4 + (correlation * base3);
 
-  // FIX: Added limits to prevent PWM overflow from cross-coupling
   if (final1 > 255) final1 = 255;
   if (final2 > 255) final2 = 255;
   if (final3 > 255) final3 = 255;
@@ -78,7 +101,6 @@ void loop() {
   analogWrite(motorPins[2], final3);
   analogWrite(motorPins[3], final4);
   
-  // Convert PWM to Percentage
   int pct1 = map(final1, 0, 255, 0, 100);
   int pct2 = map(final2, 0, 255, 0, 100);
   int pct3 = map(final3, 0, 255, 0, 100);
