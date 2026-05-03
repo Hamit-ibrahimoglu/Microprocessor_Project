@@ -11,7 +11,7 @@ const int motorPins[4] = {3, 5, 6, 9};
 const int emergencyBtnPin = 2;
 
 const int targetTemp = 24; 
-float correlation = 0.3; 
+float correlation = 0.5; // Final tuning: increased correlation for faster response
 
 volatile bool isEmergency = false; 
 
@@ -28,7 +28,6 @@ void setup() {
   
   pinMode(emergencyBtnPin, INPUT_PULLUP); 
   
-  // Attach hardware interrupt to pin 2
   attachInterrupt(digitalPinToInterrupt(emergencyBtnPin), emergency_isr, FALLING);
   
   lcd.begin(16, 2);
@@ -55,14 +54,26 @@ void displayRoom(int roomIndex, int col, int row, float temp, int speedPercent) 
   lcd.setCursor(col, row);
   lcd.print(roomIndex + 1); 
   lcd.print(":"); 
-  lcd.print((int)temp); 
+  
+  // Format temperature display
+  int tInt = (int)temp;
+  if (tInt < 10 && tInt >= 0) lcd.print("0"); 
+  lcd.print(tInt);
   lcd.print("C "); 
-  lcd.print(speedPercent); 
-  lcd.print("% "); 
+  
+  // Format speed display (00, MX, or 2 digits)
+  if (speedPercent <= 0) {
+    lcd.print("00 ");
+  } else if (speedPercent >= 100) {
+    lcd.print("MX ");
+  } else {
+    if (speedPercent < 10) lcd.print("0");
+    lcd.print(speedPercent);
+    lcd.print(" ");
+  }
 }
 
 void loop() {
-
   if (isEmergency) {
     for(int i = 0; i < 4; i++) {
       analogWrite(motorPins[i], 0); 
@@ -78,7 +89,7 @@ void loop() {
 
   float temp1 = readTemp(tempPins[0]);
   float temp2 = readTemp(tempPins[1]);
-  float temp3 = readTemp(tempPins[2]);
+  float float temp3 = readTemp(tempPins[2]);
   float temp4 = readTemp(tempPins[3]);
   
   int base1 = calc_base_pwm(temp1);
