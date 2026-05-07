@@ -1,6 +1,7 @@
-#include <LiquidCrystal.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
 
-LiquidCrystal lcd(13, 12, 8, 7, 4, 11);
+LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 int tPins[] = {A0, A1, A2, A3};
 int mPins[] = {3, 5, 6, 9};
@@ -21,7 +22,9 @@ void setup() {
   }
   pinMode(emBtn, INPUT_PULLUP); 
   attachInterrupt(digitalPinToInterrupt(emBtn), halt_sys, FALLING);
-  lcd.begin(16, 2);
+  
+  lcd.init();
+  lcd.backlight();
 }
 
 float get_temp(int pin) {
